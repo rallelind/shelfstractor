@@ -1,19 +1,37 @@
 import { useState } from "react";
-import { trpc } from "./trpc";
+import { useMutation } from "@tanstack/react-query";
 import { ImageUpload } from "./components/ImageUpload";
 import { BookshelfViewer } from "./components/BookshelfViewer";
 import { BookCard } from "./components/BookCard";
+import type { AnalyzeResponse } from "./api";
 import "./index.css";
+
+async function analyzeImage(imageBase64: string): Promise<AnalyzeResponse> {
+  const response = await fetch("/api/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imageBase64 }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to analyze image");
+  }
+
+  return response.json();
+}
 
 export function App() {
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [hoveredBook, setHoveredBook] = useState<number | null>(null);
 
-  const analyzeMutation = trpc.analyze.useMutation();
+  const analyzeMutation = useMutation({
+    mutationFn: analyzeImage,
+  });
 
   const handleImageSelected = (base64: string) => {
     setImageBase64(base64);
-    analyzeMutation.mutate({ imageBase64: base64 });
+    analyzeMutation.mutate(base64);
   };
 
   const handleReset = () => {
@@ -78,7 +96,7 @@ export function App() {
                 <p className="error-detail">
                   {analyzeMutation.error.message}
                 </p>
-                <button onClick={() => analyzeMutation.mutate({ imageBase64 })}>
+                <button onClick={() => imageBase64 && analyzeMutation.mutate(imageBase64)}>
                   Retry
                 </button>
               </div>

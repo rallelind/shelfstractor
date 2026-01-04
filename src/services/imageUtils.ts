@@ -18,6 +18,63 @@ export async function getImageDimensions(
   };
 }
 
+/**
+ * Preprocess image to improve detection quality
+ * - Normalizes brightness to reduce glare/shine
+ * - Enhances contrast for better text visibility
+ * - Sharpens slightly for clearer edges
+ */
+export async function preprocessImage(imageBase64: string): Promise<string> {
+  const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+  const imageBuffer = Buffer.from(base64Data, "base64");
+
+  const processedBuffer = await sharp(imageBuffer)
+    // Normalize - reduces shine/glare by adjusting brightness distribution
+    .normalize()
+    // Moderate contrast enhancement
+    .modulate({
+      brightness: 1.0,
+      saturation: 1.1, // Slight saturation boost helps differentiate colors
+    })
+    // Slight sharpening to improve text clarity
+    .sharpen({
+      sigma: 1.0,
+      m1: 0.5,
+      m2: 0.5,
+    })
+    // Output as high-quality JPEG
+    .jpeg({ quality: 92 })
+    .toBuffer();
+
+  return `data:image/jpeg;base64,${processedBuffer.toString("base64")}`;
+}
+
+/**
+ * Enhanced preprocessing for individual book spine crops
+ * More aggressive enhancement since we're extracting text
+ */
+export async function preprocessSpineForOCR(imageBase64: string): Promise<string> {
+  const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+  const imageBuffer = Buffer.from(base64Data, "base64");
+
+  const processedBuffer = await sharp(imageBuffer)
+    // Normalize to fix exposure issues
+    .normalize()
+    // Increase contrast for text
+    .linear(1.2, -20) // contrast multiplier and brightness offset
+    // Sharpen for text clarity
+    .sharpen({
+      sigma: 1.5,
+      m1: 1.0,
+      m2: 0.5,
+    })
+    // Higher quality for OCR
+    .jpeg({ quality: 95 })
+    .toBuffer();
+
+  return processedBuffer.toString("base64");
+}
+
 export async function cropImage(
   imageBase64: string,
   box: BoundingBox

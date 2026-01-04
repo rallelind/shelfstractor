@@ -1,15 +1,14 @@
 import { serve } from "bun";
 import { Hono } from "hono";
-import { trpcServer } from "@hono/trpc-server";
 import { cors } from "hono/cors";
-import { appRouter } from "./router";
+import { api } from "./api";
 import index from "./index.html";
 
 const app = new Hono();
 
-// Enable CORS for tRPC
+// Enable CORS for API
 app.use(
-  "/trpc/*",
+  "/api/*",
   cors({
     origin: "*",
     allowMethods: ["GET", "POST", "OPTIONS"],
@@ -17,20 +16,15 @@ app.use(
   })
 );
 
-// Mount tRPC
-app.use(
-  "/trpc/*",
-  trpcServer({
-    router: appRouter,
-  })
-);
+// Mount API routes
+app.route("/api", api);
 
 // Use Bun.serve with Hono for the API routes, and HTML import for frontend
 const server = serve({
   routes: {
-    // tRPC endpoint handled by Hono
-    "/trpc/*": (req) => app.fetch(req),
-    
+    // API endpoint handled by Hono
+    "/api/*": (req) => app.fetch(req),
+
     // Serve frontend for all other routes
     "/*": index,
   },
