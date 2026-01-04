@@ -36,56 +36,36 @@ function calculateIoU(box1: BoundingBox, box2: BoundingBox): number {
 }
 
 /**
- * Resolve significant horizontal overlaps between adjacent bounding boxes.
- * Only trim when one box significantly overlaps another (>50% of the current box width),
- * and only if trimming won't make the box too narrow.
+ * Calculate how much of box1 is contained within box2 (intersection / box1_area)
  */
-function resolveHorizontalOverlaps(detections: Detection[]): Detection[] {
-  if (detections.length < 2) return detections;
+function calculateContainment(box1: BoundingBox, box2: BoundingBox): number {
+  const x1 = Math.max(box1.x, box2.x);
+  const y1 = Math.max(box1.y, box2.y);
+  const x2 = Math.min(box1.x + box1.width, box2.x + box2.width);
+  const y2 = Math.min(box1.y + box1.height, box2.y + box2.height);
 
-  // Sort left-to-right by x position
-  const sorted = [...detections].sort((a, b) => a.box.x - b.box.x);
-  const resolved: Detection[] = [];
+  const intersectionWidth = Math.max(0, x2 - x1);
+  const intersectionHeight = Math.max(0, y2 - y1);
+  const intersectionArea = intersectionWidth * intersectionHeight;
 
-  for (let i = 0; i < sorted.length; i++) {
-    const current = { ...sorted[i]!, box: { ...sorted[i]!.box } };
-    
-    if (i > 0) {
-      const prev = resolved[resolved.length - 1]!;
-      const prevRight = prev.box.x + prev.box.width;
-      const currentLeft = current.box.x;
-      const overlap = prevRight - currentLeft;
-
-      // Only trim if the current box is significantly inside the previous box
-      // (overlap > 50% of current box width means current box starts well inside prev)
-      if (overlap > 0) {
-        const overlapRatioOfCurrent = overlap / current.box.width;
-        const newPrevWidth = currentLeft - prev.box.x;
-        
-        // Only trim if:
-        // 1. Current box is significantly overlapping (>50% of current inside prev)
-        // 2. Trimming won't make prev too narrow (at least 50% of original width remains)
-        if (overlapRatioOfCurrent > 0.5 && newPrevWidth >= prev.box.width * 0.5) {
-          prev.box.width = newPrevWidth;
-        }
-      }
-    }
-    
-    resolved.push(current);
-  }
-
-  return resolved;
+  const box1Area = box1.width * box1.height;
+  return box1Area > 0 ? intersectionArea / box1Area : 0;
 }
 
 /**
  * Non-Maximum Suppression to remove overlapping detections
- * Uses IoU-only suppression to avoid issues with large encompassing boxes
+ * Uses both IoU and containment checks to handle boxes that encompass others
  */
 function applyNMS(detections: Detection[], iouThreshold: number = 0.5): Detection[] {
   if (detections.length === 0) return [];
 
-  // Sort by confidence (highest first)
-  const sorted = [...detections].sort((a, b) => b.confidence - a.confidence);
+  // Sort by area (smallest first) - prefer smaller, more specific boxes
+  const sorted = [...detections].sort((a, b) => {
+    const areaA = a.box.width * a.box.height;
+    const areaB = b.box.width * b.box.height;
+    return areaA - areaB;
+  });
+  
   const kept: Detection[] = [];
   const suppressed = new Set<number>();
 
@@ -93,20 +73,26 @@ function applyNMS(detections: Detection[], iouThreshold: number = 0.5): Detectio
     if (suppressed.has(i)) continue;
 
     const current = sorted[i]!;
-    kept.push(current);
-
-    // Check all remaining detections
-    for (let j = i + 1; j < sorted.length; j++) {
-      if (suppressed.has(j)) continue;
-
-      const other = sorted[j]!;
-      const iou = calculateIoU(current.box, other.box);
-
-      // Suppress only if IoU is high (significant overlap)
-      if (iou > iouThreshold) {
-        suppressed.add(j);
+    
+    // Check if this box significantly overlaps with any already-kept box
+    let shouldSuppress = false;
+    for (const keptBox of kept) {
+      const iou = calculateIoU(current.box, keptBox.box);
+      // Check if current box significantly contains a kept box (current is larger)
+      const containmentOfKept = calculateContainment(keptBox.box, current.box);
+      
+      if (iou > iouThreshold || containmentOfKept > 0.7) {
+        shouldSuppress = true;
+        break;
       }
     }
+    
+    if (shouldSuppress) {
+      suppressed.add(i);
+      continue;
+    }
+    
+    kept.push(current);
   }
 
   return kept;
@@ -259,9 +245,7 @@ export async function detectBooks(imageBase64: string): Promise<Detection[]> {
 
   console.log(`After NMS: ${nmsDetections.length}`);
 
-  // Step 4: Resolve any remaining horizontal overlaps between adjacent boxes
-  const resolvedDetections = resolveHorizontalOverlaps(nmsDetections);
-
   // Sort left to right by x position
-  return resolvedDetections.sort((a, b) => a.box.x - b.box.x);
+  return nmsDetections.sort((a, b) => a.box.x - b.box.x);
 }
+
