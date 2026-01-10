@@ -125,11 +125,11 @@ export function Analyzer() {
       </Drawer.Trigger>
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-black/60" />
-        <Drawer.Content className="bg-stone-800 flex flex-col rounded-t-[10px] h-[94vh] fixed bottom-0 left-0 right-0 outline-none">
-          <div className="p-4 bg-stone-800 rounded-t-[10px] flex-1 overflow-auto max-w-md mx-auto w-full">
+        <Drawer.Content className="bg-stone-800 flex flex-col rounded-t-[10px] h-[94dvh] fixed bottom-0 left-0 right-0 outline-none">
+          <div className="p-4 pt-3 bg-stone-800 rounded-t-[10px] flex-1 overflow-auto max-w-md mx-auto w-full">
             <div
               aria-hidden
-              className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-stone-600 mb-4"
+              className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-stone-500 mb-5"
             />
 
             {status === "detecting" && <DetectingState />}

@@ -36,3 +36,10 @@ body {
 .scrollbar-none::-webkit-scrollbar {
   display: none; /* Chrome/Safari/Opera */
 }
+
+/* Mobile viewport height fix */
+@supports not (height: 1dvh) {
+  .h-\[94dvh\] {
+    height: 90vh;
+  }
+}
