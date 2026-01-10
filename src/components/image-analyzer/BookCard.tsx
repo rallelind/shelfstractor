@@ -7,7 +7,7 @@ interface BookCardProps {
 }
 
 export function BookCard({ book }: BookCardProps) {
-  const { updateBook, acceptBook } = useAnalyzerStore();
+  const { updateBook, acceptBook, nextBook } = useAnalyzerStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(book.title ?? "");
   const [editAuthor, setEditAuthor] = useState(book.author ?? "");
@@ -32,6 +32,7 @@ export function BookCard({ book }: BookCardProps) {
 
   const handleAccept = () => {
     acceptBook(book.id);
+    nextBook();
   };
 
   if (isPending) {
