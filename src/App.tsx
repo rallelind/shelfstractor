@@ -4,7 +4,7 @@ import { Analyzer } from "./components/image-analyzer/Analyzer";
 
 export function App() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 antialiased">
       <main className="max-w-md w-full text-center space-y-8">
         {/* Logo/Title */}
         <header className="space-y-3">
