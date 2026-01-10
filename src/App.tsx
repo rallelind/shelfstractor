@@ -1,29 +1,6 @@
-import { useMutation } from "@tanstack/react-query";
-import type { AnalyzeResponse } from "./api";
 import { BookIllustrations } from "./components/illustrations/BookIllustrations";
 import "./index.css";
 import { Analyzer } from "./components/image-analyzer/Analyzer";
-
-async function analyzeImage(imageBase64: string): Promise<AnalyzeResponse> {
-  const response = await fetch("/api/analyze", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ imageBase64 }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to analyze image");
-  }
-
-  return response.json();
-}
-
-function useAnalyzeImage() {
-  return useMutation({
-    mutationFn: analyzeImage,
-  });
-}
 
 export function App() {
   return (

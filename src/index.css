@@ -27,3 +27,12 @@ body {
   /* stone-100 */
   color: #f5f5f4;
 }
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-none {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Opera */
+}
