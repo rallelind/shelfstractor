@@ -19,7 +19,6 @@ export function BookViewer() {
   const currentBook = books[currentBookIndex];
   const totalBooks = books.length;
 
-  // Scroll the selected dot into view when navigation changes
   useEffect(() => {
     const dot = dotRefs.current.get(currentBookIndex);
     if (dot) {
@@ -27,10 +26,8 @@ export function BookViewer() {
     }
   }, [currentBookIndex]);
 
-  // Arrow key navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't navigate if user is typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
@@ -54,7 +51,6 @@ export function BookViewer() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Progress indicator */}
       <div className="flex items-center justify-between px-4 py-2">
         <span className="text-stone-400 text-sm font-ui">
           Book {currentBookIndex + 1} of {totalBooks}
@@ -72,7 +68,6 @@ export function BookViewer() {
         )}
       </div>
 
-      {/* Image with bounding box */}
       <div className="relative px-2 py-3">
         <img
           src={imageBase64}
@@ -80,12 +75,10 @@ export function BookViewer() {
           className="w-full rounded-lg"
         />
 
-        {/* Bounding box overlays */}
         <svg
           className="absolute inset-0 w-full h-full"
           style={{ left: "0.5rem", right: "0.5rem", top: "0.75rem", bottom: "0.75rem", width: "calc(100% - 1rem)", height: "calc(100% - 1.5rem)" }}
         >
-          {/* Non-selected books (click targets) */}
           {books.map((book, index) => {
             if (index === currentBookIndex) return null;
             return (
@@ -105,7 +98,6 @@ export function BookViewer() {
               />
             );
           })}
-          {/* Animated selection box */}
           {currentBook && (
             <rect
               x={`${currentBook.boundingBox.x}%`}
@@ -126,7 +118,6 @@ export function BookViewer() {
         </svg>
       </div>
 
-      {/* Navigation */}
       <div className="flex items-center justify-between px-4 py-3">
         <Button
           variant="ghost"
@@ -140,7 +131,6 @@ export function BookViewer() {
           Previous
         </Button>
 
-        {/* Dot indicators */}
         <div className="flex gap-1.5 overflow-x-auto max-w-[40%] px-2 scrollbar-none">
           {books.map((book, index) => (
             <button
@@ -178,7 +168,6 @@ export function BookViewer() {
         </Button>
       </div>
 
-      {/* Book card */}
       {currentBook && <BookCard book={currentBook} />}
     </div>
   );

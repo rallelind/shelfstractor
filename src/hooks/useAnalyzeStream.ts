@@ -11,17 +11,11 @@ interface ErrorEventData {
   message: string;
 }
 
-/**
- * Parse SSE events from a text chunk
- * SSE format: "event: <name>\ndata: <json>\n\n"
- */
 function parseSSEEvents(
   buffer: string
 ): { events: Array<{ event: string; data: string }>; remaining: string } {
   const events: Array<{ event: string; data: string }> = [];
   const parts = buffer.split("\n\n");
-
-  // The last part might be incomplete, keep it in the buffer
   const remaining = parts.pop() ?? "";
 
   for (const part of parts) {
@@ -88,7 +82,6 @@ export function useAnalyzeStream() {
         const { done, value } = await reader.read();
 
         if (done) {
-          // Process any remaining buffer
           if (buffer.trim()) {
             const { events } = parseSSEEvents(buffer + "\n\n");
             for (const { event, data } of events) {

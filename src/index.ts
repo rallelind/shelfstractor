@@ -6,7 +6,6 @@ import index from "./index.html";
 
 const app = new Hono();
 
-// Enable CORS for API
 app.use(
   "/api/*",
   cors({
@@ -16,16 +15,13 @@ app.use(
   })
 );
 
-// Mount API routes
 app.route("/api", api);
 
-// Use Bun.serve with Hono for the API routes, and HTML import for frontend
 const server = serve({
-  routes: {
-    // API endpoint handled by Hono
-    "/api/*": (req) => app.fetch(req),
+  idleTimeout: 120,
 
-    // Serve frontend for all other routes
+  routes: {
+    "/api/*": (req) => app.fetch(req),
     "/*": index,
   },
 

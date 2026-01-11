@@ -3,10 +3,10 @@ import { streamSSE } from "hono/streaming";
 import { detectBooks } from "./services/detection";
 import { cropImage, getImageDimensions, preprocessImage, preprocessSpineForOCR } from "./services/imageUtils";
 import { extractBookInfo } from "./services/extraction";
+import { verifyBook } from "./services/verification";
 
 export const api = new Hono();
 
-// Types for bounding boxes
 export interface BoundingBox {
   x: number;
   y: number;
@@ -14,28 +14,28 @@ export interface BoundingBox {
   height: number;
 }
 
-// Detection phase: just the bounding box info
 export interface DetectionBook {
   id: string;
   boundingBox: BoundingBox;
   detectionConfidence: number;
 }
 
-// Extraction phase: title/author matched by ID
 export interface ExtractionResult {
   id: string;
   title: string | null;
   author: string | null;
+  verified: boolean;
+  coverImage: string | null;
+  verifiedTitle: string | null;
+  verifiedAuthor: string | null;
 }
 
-// SSE Event types
 export type SSEEvent =
   | { type: "detections"; data: { total: number; books: DetectionBook[] } }
   | { type: "extraction"; data: ExtractionResult }
   | { type: "complete" }
   | { type: "error"; message: string };
 
-// Legacy types for backwards compatibility
 export interface Book {
   id: string;
   title: string | null;
@@ -58,18 +58,14 @@ api.post("/analyze", async (c) => {
 
   return streamSSE(c, async (stream) => {
     try {
-      // Preprocess image for better detection (reduces glare, improves contrast)
       console.log("Preprocessing image for detection...");
       const preprocessedImage = await preprocessImage(imageBase64);
 
-      // Get image dimensions for converting to percentages (use original)
       const dimensions = await getImageDimensions(imageBase64);
 
-      // Step 1: Detect all books in the preprocessed image
       console.log("Detecting books...");
       const detections = await detectBooks(preprocessedImage);
 
-      // Step 2: Build detection books with bounding boxes (percentage coords)
       const detectionBooks: DetectionBook[] = detections.map((detection, index) => ({
         id: `book-${index}`,
         boundingBox: {
@@ -81,32 +77,29 @@ api.post("/analyze", async (c) => {
         detectionConfidence: detection.confidence,
       }));
 
-      // Step 3: Send ALL detections first so frontend can render bounding boxes
       console.log(`Sending ${detectionBooks.length} detections to client...`);
       await stream.writeSSE({
         event: "detections",
         data: JSON.stringify({ total: detectionBooks.length, books: detectionBooks }),
       });
 
-      // Step 4: Extract info from each book sequentially and stream results
-      for (let i = 0; i < detections.length; i++) {
-        const detection = detections[i]!;
+      const extractionPromises = detections.map(async (detection, i) => {
         const bookId = `book-${i}`;
-
         console.log(`Extracting info for ${bookId}...`);
 
-        // Crop from original image (full quality)
         const croppedBase64 = await cropImage(imageBase64, detection.box);
-
-        // Apply OCR-specific preprocessing to the cropped spine
         const ocrReadySpine = await preprocessSpineForOCR(croppedBase64);
         const bookInfo = await extractBookInfo(ocrReadySpine);
+        const verification = await verifyBook(bookInfo.title, bookInfo.author, ocrReadySpine);
 
-        // Stream this extraction result
         const extractionResult: ExtractionResult = {
           id: bookId,
           title: bookInfo.title,
           author: bookInfo.author,
+          verified: verification.verified,
+          coverImage: verification.coverImage,
+          verifiedTitle: verification.verifiedTitle,
+          verifiedAuthor: verification.verifiedAuthor,
         };
 
         await stream.writeSSE({
@@ -115,9 +108,11 @@ api.post("/analyze", async (c) => {
         });
 
         console.log(`Sent extraction for ${bookId}: ${bookInfo.title ?? "unknown"}`);
-      }
+        return extractionResult;
+      });
 
-      // Step 5: Send completion event
+      await Promise.all(extractionPromises);
+
       console.log("All extractions complete");
       await stream.writeSSE({
         event: "complete",

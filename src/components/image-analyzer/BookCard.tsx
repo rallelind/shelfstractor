@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAnalyzerStore, type Book } from "../../stores/analyzer";
-import { Check, Pencil } from "lucide-react";
+import { Check, Pencil, ShieldCheck, ShieldQuestion } from "lucide-react";
 import { Button, Input, Label, Spinner } from "../ui";
 
 interface BookCardProps {
@@ -13,7 +13,6 @@ export function BookCard({ book }: BookCardProps) {
   const [editTitle, setEditTitle] = useState(book.title ?? "");
   const [editAuthor, setEditAuthor] = useState(book.author ?? "");
 
-  // Update local state when book changes
   useEffect(() => {
     setEditTitle(book.title ?? "");
     setEditAuthor(book.author ?? "");
@@ -91,21 +90,45 @@ export function BookCard({ book }: BookCardProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          <div>
-            <span className="block text-stone-500 text-xs font-ui">Title</span>
-            <span className="block text-stone-100 font-display text-lg">
-              {book.title ?? (
-                <span className="text-stone-500 italic">Unknown</span>
-              )}
-            </span>
-          </div>
-          <div>
-            <span className="block text-stone-500 text-xs font-ui">Author</span>
-            <span className="block text-stone-300 font-ui">
-              {book.author ?? (
-                <span className="text-stone-500 italic">Unknown</span>
-              )}
-            </span>
+          <div className="flex gap-3">
+            {book.coverImage && (
+              <img
+                src={book.coverImage}
+                alt={book.title ?? "Book cover"}
+                className="w-16 h-24 object-cover rounded shadow-md flex-shrink-0"
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                {book.verified ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-ui text-emerald-400">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Verified
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs font-ui text-amber-400">
+                    <ShieldQuestion className="w-3.5 h-3.5" />
+                    Unverified
+                  </span>
+                )}
+              </div>
+              <div>
+                <span className="block text-stone-500 text-xs font-ui">Title</span>
+                <span className="block text-stone-100 font-display text-lg leading-tight">
+                  {book.title ?? (
+                    <span className="text-stone-500 italic">Unknown</span>
+                  )}
+                </span>
+              </div>
+              <div className="mt-1">
+                <span className="block text-stone-500 text-xs font-ui">Author</span>
+                <span className="block text-stone-300 font-ui">
+                  {book.author ?? (
+                    <span className="text-stone-500 italic">Unknown</span>
+                  )}
+                </span>
+              </div>
+            </div>
           </div>
 
           <div className="flex gap-2 pt-1">

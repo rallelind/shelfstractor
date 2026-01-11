@@ -1,0 +1,58 @@
+---
+description: Avoid unnecessary and redundant comments that add noise to the code
+globs: "*.ts, *.tsx, *.js, *.jsx"
+---
+
+# No Unnecessary Comments
+
+Write self-documenting code. Avoid comments that:
+
+## Don't Add These Comments
+
+1. **Section dividers/headers** - No decorative separators like:
+   ```ts
+   // ============================================================================
+   // Section Name
+   // ============================================================================
+   ```
+
+2. **Obvious type/interface comments** - The name should be descriptive enough:
+   ```ts
+   // Bad: "// Types for bounding boxes"
+   // Good: Just use a clear interface name like BoundingBox
+   ```
+
+3. **Step-by-step numbering** - Don't number steps in code:
+   ```ts
+   // Bad: "// Step 1: Do X", "// Step 2: Do Y"
+   // Good: Let the code flow speak for itself
+   ```
+
+4. **Restating what the code does** - If the code is clear, don't explain it:
+   ```ts
+   // Bad: "// Crop the image"
+   // const croppedImage = cropImage(...)
+   
+   // Good: Just the code
+   // const croppedImage = cropImage(...)
+   ```
+
+5. **JSX section markers** - No `{/* Section Name */}` comments
+
+6. **Obvious JSDoc** - Don't add JSDoc that just repeats the function name:
+   ```ts
+   // Bad:
+   /** Calculate IoU between two boxes */
+   function calculateIoU(...)
+   
+   // Good: Function name is descriptive enough
+   function calculateIoU(...)
+   ```
+
+## When Comments ARE Appropriate
+
+- **Why, not what** - Explain non-obvious business logic or edge cases
+- **Workarounds** - Document temporary fixes or browser quirks
+- **External references** - Links to specs, tickets, or documentation
+- **Complex algorithms** - High-level explanation of non-trivial logic
+- **Public API docs** - JSDoc for library exports that others will consume

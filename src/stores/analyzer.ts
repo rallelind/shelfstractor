@@ -1,36 +1,28 @@
 import { create } from "zustand";
 import type { BoundingBox, DetectionBook, ExtractionResult } from "../api";
 
-// Book with merged detection + extraction data
 export interface Book {
   id: string;
   boundingBox: BoundingBox;
   detectionConfidence: number;
-  // Extraction data (null until streamed)
   title: string | null;
   author: string | null;
-  // User state
+  verified: boolean;
+  coverImage: string | null;
+  verifiedTitle: string | null;
+  verifiedAuthor: string | null;
   status: "pending" | "extracted" | "accepted" | "edited";
 }
 
 export type AnalyzerStatus = "idle" | "detecting" | "extracting" | "complete" | "error";
 
 interface AnalyzerState {
-  // Image
   imageBase64: string | null;
-
-  // Books with merged detection + extraction
   books: Book[];
-
-  // Navigation
   currentBookIndex: number;
-
-  // Status
   status: AnalyzerStatus;
   extractedCount: number;
   error: string | null;
-
-  // Actions
   setImage: (base64: string) => void;
   startAnalysis: () => void;
   setDetections: (detections: DetectionBook[]) => void;
@@ -66,13 +58,16 @@ export const useAnalyzerStore = create<AnalyzerState>((set, get) => ({
   },
 
   setDetections: (detections: DetectionBook[]) => {
-    // Convert DetectionBook[] to Book[] with pending extraction status
     const books: Book[] = detections.map((det) => ({
       id: det.id,
       boundingBox: det.boundingBox,
       detectionConfidence: det.detectionConfidence,
       title: null,
       author: null,
+      verified: false,
+      coverImage: null,
+      verifiedTitle: null,
+      verifiedAuthor: null,
       status: "pending",
     }));
     set({ books, status: "extracting" });
@@ -84,8 +79,12 @@ export const useAnalyzerStore = create<AnalyzerState>((set, get) => ({
         book.id === extraction.id
           ? {
               ...book,
-              title: extraction.title,
-              author: extraction.author,
+              title: extraction.verifiedTitle ?? extraction.title,
+              author: extraction.verifiedAuthor ?? extraction.author,
+              verified: extraction.verified,
+              coverImage: extraction.coverImage,
+              verifiedTitle: extraction.verifiedTitle,
+              verifiedAuthor: extraction.verifiedAuthor,
               status: "extracted" as const,
             }
           : book

@@ -16,8 +16,18 @@ export async function extractBookInfo(
       {
         role: "system",
         content: `Extract the title and author from this book spine image.
+
+IMPORTANT: Only extract text you can CLEARLY read. Do NOT guess or make up titles/authors.
+
+If the image is:
+- Too blurry, dark, or low quality to read
+- At an angle that makes text illegible  
+- Partially obscured or cut off
+
+Then return null for any fields you cannot confidently read.
+
 Respond in JSON: {"title": "...", "author": "..."}
-Use null if unreadable.`,
+Use null for any field you cannot clearly read. It's better to return null than guess wrong.`,
       },
       {
         role: "user",
