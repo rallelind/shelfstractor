@@ -26,6 +26,27 @@ export function BookViewer() {
     }
   }, [currentBookIndex]);
 
+  // Arrow key navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't navigate if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        prevBook();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        nextBook();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [nextBook, prevBook]);
+
   if (!imageBase64 || books.length === 0) {
     return null;
   }
@@ -63,8 +84,9 @@ export function BookViewer() {
           className="absolute inset-0 w-full h-full"
           style={{ left: "0.5rem", right: "0.5rem", top: "0.75rem", bottom: "0.75rem", width: "calc(100% - 1rem)", height: "calc(100% - 1.5rem)" }}
         >
+          {/* Non-selected books (click targets) */}
           {books.map((book, index) => {
-            const isSelected = index === currentBookIndex;
+            if (index === currentBookIndex) return null;
             return (
               <rect
                 key={book.id}
@@ -75,13 +97,31 @@ export function BookViewer() {
                 rx="4"
                 ry="4"
                 fill="transparent"
-                stroke={isSelected ? "#fafaf9" : "transparent"}
+                stroke="transparent"
                 strokeWidth={2}
                 className="cursor-pointer"
                 onClick={() => useAnalyzerStore.getState().setCurrentBook(index)}
               />
             );
           })}
+          {/* Animated selection box */}
+          {currentBook && (
+            <rect
+              x={`${currentBook.boundingBox.x}%`}
+              y={`${currentBook.boundingBox.y}%`}
+              width={`${currentBook.boundingBox.width}%`}
+              height={`${currentBook.boundingBox.height}%`}
+              rx="4"
+              ry="4"
+              fill="transparent"
+              stroke="#fafaf9"
+              strokeWidth={2}
+              className="pointer-events-none"
+              style={{
+                transition: "x 300ms cubic-bezier(0.4, 0, 0.2, 1), y 300ms cubic-bezier(0.4, 0, 0.2, 1), width 300ms cubic-bezier(0.4, 0, 0.2, 1), height 300ms cubic-bezier(0.4, 0, 0.2, 1)",
+              }}
+            />
+          )}
         </svg>
       </div>
 
