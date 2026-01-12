@@ -134,7 +134,10 @@ function adaptiveFilter(detections: Detection[]): Detection[] {
   });
 }
 
-export async function detectBooks(imageBase64: string): Promise<Detection[]> {
+export async function detectBooks(
+  imageBase64: string,
+  imageDimensions: { width: number; height: number }
+): Promise<Detection[]> {
   const imageUrl = imageBase64.startsWith("data:")
     ? imageBase64
     : `data:image/jpeg;base64,${imageBase64}`;
@@ -191,13 +194,11 @@ export async function detectBooks(imageBase64: string): Promise<Detection[]> {
     .filter((det): det is Detection => det !== null);
 
   console.log(`Raw detections: ${rawDetections.length}`);
+  console.log(`Image dimensions: ${imageDimensions.width}x${imageDimensions.height}`);
 
-  const imageWidth = Math.max(...rawDetections.map(d => d.box.x + d.box.width));
-  const imageHeight = Math.max(...rawDetections.map(d => d.box.y + d.box.height));
-  
   const preFiltered = rawDetections.filter(det => {
-    const widthRatio = det.box.width / imageWidth;
-    const heightRatio = det.box.height / imageHeight;
+    const widthRatio = det.box.width / imageDimensions.width;
+    const heightRatio = det.box.height / imageDimensions.height;
     return widthRatio < 0.5 && heightRatio > 0.3;
   });
 

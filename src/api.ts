@@ -90,9 +90,10 @@ api.post("/analyze", async (c) => {
       const preprocessedImage = await preprocessImage(imageBase64);
 
       const dimensions = await getImageDimensions(imageBase64);
+      console.log(`Image dimensions (after EXIF rotation): ${dimensions.width}x${dimensions.height}`);
 
       console.log("Detecting books...");
-      const detections = await detectBooks(preprocessedImage);
+      const detections = await detectBooks(preprocessedImage, dimensions);
 
       const detectionBooks: DetectionBook[] = detections.map((detection, index) => ({
         id: `book-${index}`,

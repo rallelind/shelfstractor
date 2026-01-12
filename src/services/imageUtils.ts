@@ -11,7 +11,8 @@ export async function getImageDimensions(
 ): Promise<ImageDimensions> {
   const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
   const imageBuffer = Buffer.from(base64Data, "base64");
-  const metadata = await sharp(imageBuffer).metadata();
+  const rotated = await sharp(imageBuffer).rotate().toBuffer();
+  const metadata = await sharp(rotated).metadata();
   return {
     width: metadata.width ?? 0,
     height: metadata.height ?? 0,
@@ -23,6 +24,7 @@ export async function preprocessImage(imageBase64: string): Promise<string> {
   const imageBuffer = Buffer.from(base64Data, "base64");
 
   const processedBuffer = await sharp(imageBuffer)
+    .rotate()
     .normalize()
     .modulate({
       brightness: 1.0,
