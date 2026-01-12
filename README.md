@@ -34,6 +34,10 @@ The extracted title/author (which may have OCR errors) is verified using GPT-4o 
 
 This agentic approach allows the model to correct OCR mistakes, handle abbreviated titles, and find the right edition even when the extracted text is imperfect.
 
+## Design
+
+UI and UX inspired by [Margins](https://margins.app/) — a beautifully designed reading companion for people who love books.
+
 ## Tech Stack
 
 - **Runtime**: [Bun](https://bun.sh)
