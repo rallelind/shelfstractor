@@ -3,7 +3,9 @@ import { streamSSE } from "hono/streaming";
 import { detectBooks } from "./services/detection";
 import { cropImage, getImageDimensions, preprocessImage, preprocessSpineForOCR } from "./services/imageUtils";
 import { extractBookInfo } from "./services/extraction";
-import { verifyBook } from "./services/verification";
+import { verifyBook, searchGoogleBooks, type BookCandidate } from "./services/verification";
+
+export type { BookCandidate };
 
 export const api = new Hono();
 
@@ -28,6 +30,8 @@ export interface ExtractionResult {
   coverImage: string | null;
   verifiedTitle: string | null;
   verifiedAuthor: string | null;
+  candidates: BookCandidate[];
+  failureReason: string | null;
 }
 
 export type SSEEvent =
@@ -47,6 +51,30 @@ export interface Book {
 export interface AnalyzeResponse {
   books: Book[];
 }
+
+export interface SearchResult {
+  title: string;
+  author: string | null;
+  coverImage: string | null;
+}
+
+api.get("/search", async (c) => {
+  const query = c.req.query("q");
+
+  if (!query) {
+    return c.json({ error: "q query parameter is required" }, 400);
+  }
+
+  const results = await searchGoogleBooks(query, null);
+
+  const searchResults: SearchResult[] = results.map((r) => ({
+    title: r.title,
+    author: r.author,
+    coverImage: r.thumbnail,
+  }));
+
+  return c.json({ results: searchResults });
+});
 
 api.post("/analyze", async (c) => {
   const body = await c.req.json<{ imageBase64: string }>();
@@ -83,7 +111,9 @@ api.post("/analyze", async (c) => {
         data: JSON.stringify({ total: detectionBooks.length, books: detectionBooks }),
       });
 
-      const extractionPromises = detections.map(async (detection, i) => {
+      const CONCURRENCY = 1;
+      
+      const processBook = async (detection: typeof detections[0], i: number) => {
         const bookId = `book-${i}`;
         console.log(`Extracting info for ${bookId}...`);
 
@@ -100,6 +130,8 @@ api.post("/analyze", async (c) => {
           coverImage: verification.coverImage,
           verifiedTitle: verification.verifiedTitle,
           verifiedAuthor: verification.verifiedAuthor,
+          candidates: verification.candidates,
+          failureReason: verification.failureReason,
         };
 
         await stream.writeSSE({
@@ -107,11 +139,17 @@ api.post("/analyze", async (c) => {
           data: JSON.stringify(extractionResult),
         });
 
-        console.log(`Sent extraction for ${bookId}: ${bookInfo.title ?? "unknown"}`);
-        return extractionResult;
-      });
+        if (verification.failureReason) {
+          console.log(`Sent extraction for ${bookId}: ⚠️ FAILED - ${verification.failureReason}`);
+        } else {
+          console.log(`Sent extraction for ${bookId}: ${verification.verifiedTitle ?? bookInfo.title ?? "unknown"}`);
+        }
+      };
 
-      await Promise.all(extractionPromises);
+      for (let i = 0; i < detections.length; i += CONCURRENCY) {
+        const batch = detections.slice(i, i + CONCURRENCY);
+        await Promise.all(batch.map((detection, j) => processBook(detection, i + j)));
+      }
 
       console.log("All extractions complete");
       await stream.writeSSE({

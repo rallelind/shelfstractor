@@ -17,20 +17,38 @@ const bookResultSchema = z.object({
 
 type BookResult = z.infer<typeof bookResultSchema>;
 
+const candidateSchema = z.object({
+  title: z.string(),
+  author: z.string().nullable(),
+  coverImage: z.string().nullable(),
+  score: z.number().min(0).max(100).describe("Confidence score 0-100 based on how well this matches the spine image"),
+});
+
 const verificationResponseSchema = z.object({
-  verified: z.boolean().describe("Whether a confident match was found"),
-  verifiedTitle: z.string().nullable().describe("The matched book's title, or null if not found"),
-  verifiedAuthor: z.string().nullable().describe("The matched book's author, or null if not found"),
-  coverImage: z.string().nullable().describe("Thumbnail URL from Google Books, or null if not found"),
+  verified: z.boolean().describe("True if confidently matched to a single book, false if uncertain or no match"),
+  verifiedTitle: z.string().nullable().describe("The matched book's title (when verified=true), or null"),
+  verifiedAuthor: z.string().nullable().describe("The matched book's author (when verified=true), or null"),
+  coverImage: z.string().nullable().describe("Thumbnail URL (when verified=true), or null"),
+  candidates: z.array(candidateSchema).describe("When uncertain between multiple books, list 2-4 candidates for user to choose from. Empty if verified=true or no matches found."),
+  failureReason: z.string().nullable().describe("When verified=false AND candidates is empty, explain why (e.g. 'Text too blurry to read', 'Not a book spine', 'No matching books found'). Null otherwise."),
 });
 
 type VerificationResponse = z.infer<typeof verificationResponseSchema>;
+
+export interface BookCandidate {
+  title: string;
+  author: string | null;
+  coverImage: string | null;
+  score: number;
+}
 
 export interface VerificationResult {
   verified: boolean;
   coverImage: string | null;
   verifiedTitle: string | null;
   verifiedAuthor: string | null;
+  candidates: BookCandidate[];
+  failureReason: string | null;
 }
 
 interface GoogleBooksResponse {
@@ -47,7 +65,7 @@ interface GoogleBooksResponse {
   }>;
 }
 
-async function searchGoogleBooks(
+export async function searchGoogleBooks(
   title: string,
   author: string | null
 ): Promise<BookResult[]> {
@@ -68,24 +86,20 @@ async function searchGoogleBooks(
   const query = encodeURIComponent(queryParts.join(" "));
   const url = `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=5`;
 
-  console.log(`[Verification] Searching Google Books: ${queryParts.join(" ")}`);
-
   try {
     const response = await fetch(url);
 
     if (!response.ok) {
-      console.warn(`[Verification] Google Books API error: ${response.status}`);
       return [];
     }
 
     const data = (await response.json()) as GoogleBooksResponse;
 
     if (!data.items || data.items.length === 0) {
-      console.log(`[Verification] No results found`);
       return [];
     }
 
-    const results: BookResult[] = data.items.map((item) => ({
+    return data.items.map((item) => ({
       title: item.volumeInfo.title ?? "Unknown Title",
       author: item.volumeInfo.authors?.[0] ?? null,
       thumbnail:
@@ -93,11 +107,7 @@ async function searchGoogleBooks(
         item.volumeInfo.imageLinks?.smallThumbnail ??
         null,
     }));
-
-    console.log(`[Verification] Found ${results.length} results`);
-    return results;
-  } catch (error) {
-    console.error("[Verification] Error searching Google Books:", error);
+  } catch {
     return [];
   }
 }
@@ -121,21 +131,47 @@ Your job:
 1. Look at the spine image carefully to see what text is visible
 2. Use the search_books tool to find the correct book
 3. Compare search results against what you see in the image
-4. If no results found, try different search strategies
 
-When you're confident you've found the right book, respond with your final answer.
-If you cannot find a match after trying different searches, respond with verified: false.
+THREE POSSIBLE OUTCOMES:
 
-Search strategy (try in order until you find results):
-1. Search with title only (author field from OCR is often wrong or missing)
-2. Search with partial/key words from the title
-3. Search with author only if visible on spine
-4. Try different spellings if OCR might have errors
+1. FOUND THE BOOK (preferred):
+   - verified=true, fill in title/author/coverImage, candidates=[], failureReason=null
+   - Use when you're confident you found the exact book
+
+2. MULTIPLE CANDIDATES:
+   - verified=false, candidates=[2-4 options with scores], failureReason=null
+   - Use when multiple books could match and user should choose
+   - Include books with cover images when possible
+   - Give each candidate a score (0-100) based on:
+     • How well the title matches the spine text (most important)
+     • Whether it has a cover image
+     • How well the author matches (if visible on spine)
+
+3. COULD NOT IDENTIFY:
+   - verified=false, candidates=[], failureReason="<explanation>"
+   - Use when you cannot identify the book at all
+   - Provide a helpful reason, e.g.:
+     • "Text on spine is too blurry to read"
+     • "Spine appears blank or text is not visible"
+     • "This appears to be a notebook or journal, not a published book"
+     • "Could not find any matching books in search results"
+     • "Text is in a script/language that cannot be searched"
+
+When selecting/ranking results:
+- Prefer results with a cover image (URL not "none")
+- Prefer exact or closest title matches
+- The first search result is often the best match
+- If a result's title matches the spine well, pick it even if author differs from OCR
+
+Search strategy:
+1. Search with title only (OCR author is often wrong)
+2. Try partial/key words if needed
+3. Try author only if visible on spine
 
 Tips:
-- OCR extractions may have errors - use the image as the source of truth
-- The extracted author is frequently incorrect - prefer title-only searches first
-- Book spines may show abbreviated or stylized titles`;
+- Use the spine IMAGE as ground truth, not OCR text
+- Book spines may show abbreviated titles
+- One good search is usually enough`;
 
 export async function verifyBook(
   title: string | null,
@@ -143,7 +179,7 @@ export async function verifyBook(
   spineImageBase64?: string
 ): Promise<VerificationResult> {
   if (!title && !author) {
-    return { verified: false, coverImage: null, verifiedTitle: null, verifiedAuthor: null };
+    return { verified: false, coverImage: null, verifiedTitle: null, verifiedAuthor: null, candidates: [], failureReason: "No text could be extracted from the spine image" };
   }
 
   console.log(`[Verification] Starting verification for: "${title}" by "${author}"`);
@@ -210,14 +246,26 @@ Search Google Books to find the correct book. If you can see the spine image, us
           if (textContent?.text) {
             try {
               const parsed = JSON.parse(textContent.text) as VerificationResponse;
-              console.log(
-                `[Verification] Complete: verified=${parsed.verified}, title="${parsed.verifiedTitle}"`
-              );
+              const candidates = (parsed.candidates ?? []).sort((a, b) => b.score - a.score);
+              const failureReason = parsed.failureReason ?? null;
+              
+              if (parsed.verified) {
+                console.log(`[Verification] ✅ "${parsed.verifiedTitle}" by ${parsed.verifiedAuthor ?? "Unknown"}${parsed.coverImage ? " (has cover)" : ""}`);
+              } else if (candidates.length > 0) {
+                console.log(`[Verification] 🤔 Uncertain for "${title}" - ${candidates.length} candidates:`);
+                for (const c of candidates) {
+                  console.log(`  • [${c.score}%] "${c.title}" by ${c.author ?? "Unknown"}${c.coverImage ? " ✓cover" : ""}`);
+                }
+              } else {
+                console.log(`[Verification] ❌ Failed: ${failureReason ?? "Unknown reason"}`);
+              }
               return {
                 verified: parsed.verified,
                 coverImage: parsed.coverImage,
                 verifiedTitle: parsed.verifiedTitle,
                 verifiedAuthor: parsed.verifiedAuthor,
+                candidates,
+                failureReason,
               };
             } catch {
               console.error("[Verification] Failed to parse response JSON");
@@ -232,17 +280,21 @@ Search Google Books to find the correct book. If you can see the spine image, us
 
       for (const toolCall of toolCalls) {
         toolCallCount++;
-        console.log(`[Verification] Tool call ${toolCallCount}: ${toolCall.name}`);
 
         if (toolCall.name === "search_books") {
           const args = JSON.parse(toolCall.arguments) as z.infer<typeof searchBooksInputSchema>;
           const results = await searchGoogleBooks(args.title, args.author);
 
+          console.log(`[Verification] search_books("${args.title}"${args.author ? `, "${args.author}"` : ""}) → ${results.length} results:`);
+          for (const [i, r] of results.entries()) {
+            console.log(`  ${i + 1}. "${r.title}" by ${r.author ?? "Unknown"}${r.thumbnail ? " ✓cover" : ""}`);
+          }
+
           const formattedResults = results.length === 0
             ? "No books found. Try a different search query."
             : results.map((r, i) => 
-                `${i + 1}. "${r.title}" by ${r.author ?? "Unknown"}\n   Cover: ${r.thumbnail ?? "No cover available"}`
-              ).join("\n\n");
+                `${i + 1}. "${r.title}" by ${r.author ?? "Unknown"} | Cover: ${r.thumbnail ?? "none"}`
+              ).join("\n");
 
           toolOutputs.push({
             type: "function_call_output",
@@ -256,9 +308,9 @@ Search Google Books to find the correct book. If you can see the spine image, us
     }
 
     console.log(`[Verification] Max tool calls reached or no valid response`);
-    return { verified: false, coverImage: null, verifiedTitle: null, verifiedAuthor: null };
+    return { verified: false, coverImage: null, verifiedTitle: null, verifiedAuthor: null, candidates: [], failureReason: "Verification process did not complete" };
   } catch (error) {
     console.error("[Verification] Error during verification:", error);
-    return { verified: false, coverImage: null, verifiedTitle: null, verifiedAuthor: null };
+    return { verified: false, coverImage: null, verifiedTitle: null, verifiedAuthor: null, candidates: [], failureReason: "An error occurred during verification" };
   }
 }

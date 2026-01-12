@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { BoundingBox, DetectionBook, ExtractionResult } from "../api";
+import type { BoundingBox, DetectionBook, ExtractionResult, BookCandidate } from "../api";
 
 export interface Book {
   id: string;
@@ -11,7 +11,9 @@ export interface Book {
   coverImage: string | null;
   verifiedTitle: string | null;
   verifiedAuthor: string | null;
-  status: "pending" | "extracted" | "accepted" | "edited";
+  candidates: BookCandidate[];
+  failureReason: string | null;
+  status: "pending" | "extracted" | "accepted";
 }
 
 export type AnalyzerStatus = "idle" | "detecting" | "extracting" | "complete" | "error";
@@ -32,7 +34,7 @@ interface AnalyzerState {
   setCurrentBook: (index: number) => void;
   nextBook: () => void;
   prevBook: () => void;
-  updateBook: (id: string, updates: Partial<Pick<Book, "title" | "author">>) => void;
+  selectCandidate: (bookId: string, candidate: BookCandidate) => void;
   acceptBook: (id: string) => void;
   reset: () => void;
 }
@@ -68,6 +70,8 @@ export const useAnalyzerStore = create<AnalyzerState>((set, get) => ({
       coverImage: null,
       verifiedTitle: null,
       verifiedAuthor: null,
+      candidates: [],
+      failureReason: null,
       status: "pending",
     }));
     set({ books, status: "extracting" });
@@ -85,6 +89,8 @@ export const useAnalyzerStore = create<AnalyzerState>((set, get) => ({
               coverImage: extraction.coverImage,
               verifiedTitle: extraction.verifiedTitle,
               verifiedAuthor: extraction.verifiedAuthor,
+              candidates: extraction.candidates,
+              failureReason: extraction.failureReason,
               status: "extracted" as const,
             }
           : book
@@ -125,11 +131,19 @@ export const useAnalyzerStore = create<AnalyzerState>((set, get) => ({
     }
   },
 
-  updateBook: (id: string, updates: Partial<Pick<Book, "title" | "author">>) => {
+  selectCandidate: (bookId: string, candidate: BookCandidate) => {
     set((state) => ({
       books: state.books.map((book) =>
-        book.id === id
-          ? { ...book, ...updates, status: "edited" as const }
+        book.id === bookId
+          ? {
+              ...book,
+              title: candidate.title,
+              author: candidate.author,
+              coverImage: candidate.coverImage,
+              verified: true,
+              candidates: [],
+              failureReason: null,
+            }
           : book
       ),
     }));
