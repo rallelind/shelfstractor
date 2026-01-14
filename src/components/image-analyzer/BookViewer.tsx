@@ -111,7 +111,7 @@ export function BookViewer() {
               strokeWidth={2}
               className="pointer-events-none"
               style={{
-                transition: "x 300ms cubic-bezier(0.4, 0, 0.2, 1), y 300ms cubic-bezier(0.4, 0, 0.2, 1), width 300ms cubic-bezier(0.4, 0, 0.2, 1), height 300ms cubic-bezier(0.4, 0, 0.2, 1)",
+                transition: "x 150ms cubic-bezier(0.16, 1, 0.3, 1), y 150ms cubic-bezier(0.16, 1, 0.3, 1), width 150ms cubic-bezier(0.16, 1, 0.3, 1), height 150ms cubic-bezier(0.16, 1, 0.3, 1)",
               }}
             />
           )}
