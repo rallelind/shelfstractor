@@ -4,6 +4,10 @@ A web app that extracts book information from photos of bookshelves using a mult
 
 Upload a photo of your bookshelf, and Unbind will detect individual book spines, read the titles and authors, verify them against Google Books, and display cover images.
 
+## Example
+
+![Example bookshelf](assets/example-bookshelf.jpg)
+
 ## AI Pipeline
 
 The extraction process uses three specialized models in sequence:
