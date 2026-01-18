@@ -1,0 +1,139 @@
+---
+description: Swift and SwiftUI coding guidelines for the iOS mobile app
+globs: "*.swift"
+---
+
+# Swift & SwiftUI Guidelines
+
+This project uses SwiftUI with iOS 17+ as the minimum deployment target.
+
+## SwiftUI Patterns
+
+### Use Modern Observation (iOS 17+)
+
+Use the `@Observable` macro instead of the older `ObservableObject` protocol:
+
+```swift
+// Good: Modern @Observable macro
+@Observable
+class BookStore {
+    var books: [Book] = []
+    var isLoading = false
+}
+
+// Bad: Older ObservableObject pattern
+class BookStore: ObservableObject {
+    @Published var books: [Book] = []
+    @Published var isLoading = false
+}
+```
+
+### Keep Views Small and Composable
+
+Extract reusable pieces into separate views. Each view should have a single responsibility:
+
+```swift
+// Good: Small, focused views
+struct BookListView: View {
+    var body: some View {
+        List(books) { book in
+            BookRowView(book: book)
+        }
+    }
+}
+
+struct BookRowView: View {
+    let book: Book
+    var body: some View {
+        HStack {
+            BookCoverImage(url: book.coverURL)
+            BookDetails(book: book)
+        }
+    }
+}
+```
+
+### Prefer Value Types
+
+Use `struct` for models and data types. Use `class` only when you need reference semantics or inheritance:
+
+```swift
+// Good: Struct for data models
+struct Book: Identifiable {
+    let id: UUID
+    let title: String
+    let author: String
+}
+
+// Class only when needed (e.g., for @Observable state)
+@Observable
+class AppState {
+    var currentUser: User?
+}
+```
+
+## Swift Naming Conventions
+
+- **Types** (structs, classes, enums, protocols): `PascalCase` → `BookDetailView`, `NetworkError`
+- **Variables, functions, properties**: `camelCase` → `fetchBooks()`, `isLoading`, `bookCount`
+- **Constants**: `camelCase` → `let maxRetryCount = 3`
+- **Boolean properties**: Prefix with `is`, `has`, `should` → `isVisible`, `hasAccess`
+
+## View Modifiers
+
+Chain modifiers in a readable order. Generally: layout → appearance → interaction:
+
+```swift
+Text("Hello")
+    .font(.title)           // Typography first
+    .foregroundStyle(.primary)
+    .padding()              // Then spacing
+    .background(.ultraThinMaterial)
+    .clipShape(RoundedRectangle(cornerRadius: 12))
+```
+
+## Avoid UIKit Unless Necessary
+
+Prefer pure SwiftUI solutions. Only use UIKit via `UIViewRepresentable` when SwiftUI lacks the capability:
+
+```swift
+// Good: Native SwiftUI
+PhotosPicker(selection: $selectedItem) {
+    Label("Select Photo", systemImage: "photo")
+}
+
+// Avoid unless necessary: Wrapping UIKit
+struct ImagePicker: UIViewControllerRepresentable { ... }
+```
+
+## File Organization
+
+Organize files by feature, not by type:
+
+```
+Views/
+├── Landing/
+│   ├── LandingView.swift
+│   └── LandingViewModel.swift
+├── Camera/
+│   ├── CameraView.swift
+│   └── CameraOverlay.swift
+└── Results/
+    ├── ResultsView.swift
+    └── BookCard.swift
+```
+
+## Error Handling
+
+Use Swift's `Result` type or async/await with proper error handling:
+
+```swift
+func fetchBooks() async throws -> [Book] {
+    let (data, response) = try await URLSession.shared.data(from: url)
+    guard let httpResponse = response as? HTTPURLResponse,
+          httpResponse.statusCode == 200 else {
+        throw NetworkError.invalidResponse
+    }
+    return try JSONDecoder().decode([Book].self, from: data)
+}
+```
