@@ -7,7 +7,7 @@ export function App() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 antialiased">
       <main className="max-w-md w-full text-center space-y-8">
         <header className="space-y-3">
-          <h1 className="text-5xl font-normal font-serif text-stone-100 tracking-tight">
+          <h1 className="text-5xl font-normal font-display text-stone-100 tracking-tight">
             Unbind
           </h1>
         </header>
