@@ -1,20 +1,13 @@
 import SwiftUI
 
-enum ScannerStatus {
-    case idle
-    case detecting
-    case review
-    case error(String)
-}
-
 struct ScannerView: View {
 
-    @State private var status: ScannerStatus = .idle
-    @State private var selectedImage: UIImage?
+    @Environment(AnalyzerViewModel.self) var viewModel
     @State private var showCamera = false
     @State private var showLibrary = false
 
     var body: some View {
+        @Bindable var viewModel = viewModel
         VStack(spacing: 0) {
             Capsule()
                 .fill(Color.stone500)
@@ -22,7 +15,7 @@ struct ScannerView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 20)
 
-            switch status {
+            switch viewModel.status {
             case .idle:
                 IdleView(
                     onTakePhoto: {
@@ -33,10 +26,14 @@ struct ScannerView: View {
                     })
             case .detecting:
                 DetectingView()
-            case .review:
+            case .extracting:
+                EmptyView()
+            case .complete:
                 EmptyView()
             case .error(let message):
-                EmptyView()
+                ErrorView(error: message, onRetry: {
+                    viewModel.reset()
+                })
             }
 
         }
@@ -45,15 +42,16 @@ struct ScannerView: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.hidden)
         .sheet(isPresented: $showCamera) {
-            ImagePicker(image: $selectedImage, sourceType: .camera)
+            ImagePicker(image: $viewModel.selectedImage, sourceType: .camera)
         }
         .sheet(isPresented: $showLibrary) {
-            ImagePicker(image: $selectedImage, sourceType: .photoLibrary)
+            ImagePicker(image: $viewModel.selectedImage, sourceType: .photoLibrary)
         }
-        .onChange(of: selectedImage) { oldValue, newValue in
+        .onChange(of: viewModel.selectedImage) { oldValue, newValue in
             if newValue != nil {
-                status = .detecting
-                // Later: trigger the API call here
+                Task {
+                    await viewModel.analyze()
+                }
             }
         }
     }
