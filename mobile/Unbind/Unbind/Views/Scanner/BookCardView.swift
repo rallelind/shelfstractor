@@ -59,6 +59,7 @@ struct BookCardView: View {
                     if book.status != .accepted {
                         Button {
                             viewModel.acceptBook(id: book.id)
+                            viewModel.nextBook()
                         } label: {
                             Label("Accept", systemImage: "checkmark")
                         }
