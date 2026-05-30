@@ -4,7 +4,10 @@ A web app that extracts book information from photos of bookshelves using a mult
 
 Upload a photo of your bookshelf, and Unbind will detect individual book spines, read the titles and authors, verify them against Google Books, and display cover images.
 
-## Example
+## Try it here
+unbind.up.railway.app/
+
+## Example Image that would work
 
 ![Example bookshelf](assets/example-bookshelf.jpg)
 
